@@ -19,7 +19,7 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
     void timerEvent(QTimerEvent* e) override;
 
   private:
-    QSize imgSize_;
+    QSize imgSize_ {640, 480};
     GLuint buf_;
     GLuint texture_;
     void* cudaBufHandle_ {nullptr};

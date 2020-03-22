@@ -5,8 +5,6 @@
 
 #include "cuda/julia.cu.h"
 
-#include <QImage>
-
 using cuda::Err;
 
 Window::Window(QWidget* parent)
@@ -40,13 +38,9 @@ void Window::initializeGL()
 
     timerId_ = startTimer(30);
 
-    QImage img("some_image.png");
-    imgSize_ = img.size();
-    img = img.convertToFormat(QImage::Format_RGB32); // BGRA on little endian
-
     glGenBuffers(1, &buf_);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf_);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, imgSize_.width() * imgSize_.height() * 4, 0 /*img.constBits()*/, GL_DYNAMIC_DRAW);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, imgSize_.width() * imgSize_.height() * 4, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); //< unbinding the pixel_unpack buffer
 
     cudaBufHandle_ = cuda::registerBuffer(buf_);
