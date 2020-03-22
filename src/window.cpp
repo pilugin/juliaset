@@ -31,6 +31,7 @@ void Window::initializeGL()
 
     constexpr size_t gradientSize = 128;
 
+    // TODO use constant memory here
     cudaMalloc(&devGradient_, gradientSize * sizeof(uint32_t)) || Err{"Failed to allocate device memory"};
     const auto hostGradient = generateGradient(generateDefaultGradientStops(), gradientSize);
     cudaMemcpy(devGradient_, hostGradient.data(), hostGradient.size()*sizeof(uint32_t), cudaMemcpyHostToDevice) || Err{"Failed to memcpy to device"};
@@ -40,33 +41,41 @@ void Window::initializeGL()
 
     glGenBuffers(1, &buf_);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf_);
-    glBufferData(GL_PIXEL_UNPACK_BUFFER, imgSize_.width() * imgSize_.height() * 4, NULL, GL_DYNAMIC_DRAW);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, geometry().width() * geometry().height() * 4, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); //< unbinding the pixel_unpack buffer
 
     cudaBufHandle_ = cuda::registerBuffer(buf_);
 
     glGenTextures(1, &texture_);
     glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, geometry().width(), geometry().height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, imgSize_.width(), imgSize_.height(), 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-//    glEnable(GL_BLEND);
     glEnable(GL_TEXTURE_2D);
 
-//    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 }
 
 void Window::resizeGL(int w, int h)
 {
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(0.0, w, h, 1.0, -1.0, 1.0);
+    glOrtho(0.0, w,
+            h, 0.0,
+            -1.0, 1.0);
 
     glViewport(0, 0, w, h);
-    glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+    // update size of PBO and Texture
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, w, h, 0, GL_BGRA, GL_UNSIGNED_BYTE, 0);
+
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf_);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, w * h * 4, NULL, GL_DYNAMIC_DRAW);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); //< unbinding the pixel_unpack buffer
+
 }
 
 void Window::paintGL()
@@ -74,13 +83,14 @@ void Window::paintGL()
     glClear(GL_COLOR_BUFFER_BIT);
 
     void *devPtr = cuda::map(cudaBufHandle_);
-    renderJuliaSet(devPtr, imgSize_.width(), imgSize_.height(), scaleFactor_, devGradient_, devGradientSize_);
+    renderJuliaSet(devPtr, geometry().width(), geometry().height(), scaleFactor_, devGradient_, devGradientSize_);
     cuda::unmap(cudaBufHandle_);
 
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf_);
     glBindTexture(GL_TEXTURE_2D, texture_);
     // Fast path due to BGRA
-    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, imgSize_.width(), imgSize_.height(), GL_BGRA, GL_UNSIGNED_BYTE, 0);
+    // If the buffer is bound to PIXEL_UNPACK_BUFFER - use it as a texture source
+    glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, geometry().width(), geometry().height(), GL_BGRA, GL_UNSIGNED_BYTE, 0);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
     // do something with the texture
