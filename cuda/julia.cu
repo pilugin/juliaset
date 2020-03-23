@@ -4,12 +4,12 @@ namespace {
 
 struct cuComplex
 {
-    double r;
-    double i;
+    float r;
+    float i;
 
-    __device__ cuComplex(double rr = 0.0, double ii = 0.0) : r{rr}, i{ii} { ; }
+    __device__ cuComplex(float rr = 0.0, float ii = 0.0) : r{rr}, i{ii} { ; }
 
-    __device__ double magnitude2() const
+    __device__ float magnitude2() const
     {
         return r*r + i*i;
     }
@@ -25,12 +25,12 @@ struct cuComplex
     }
 };
 
-constexpr double DIM = 1000.;
+constexpr float DIM = 1000.;
 
-__device__ int julia(int x, int y, double scale, size_t maxIter)
+__device__ int julia(int x, int y, float scale, size_t maxIter)
 {
-    double jx = scale * (DIM/2. - x)/(DIM/2.);
-    double jy = scale * (DIM/2. - y)/(DIM/2.);
+    float jx = scale * (DIM/2. - x)/(DIM/2.);
+    float jy = scale * (DIM/2. - y)/(DIM/2.);
 
     cuComplex c{-0.8, 0.156}; // -0.8; 0.156
     cuComplex a{jx, jy};
@@ -46,7 +46,7 @@ __device__ int julia(int x, int y, double scale, size_t maxIter)
     return i;
 }
 
-__global__ void juliaKernel(uchar4* ptr, int w, int h, double scale, const uchar4* gradient, size_t gradientSize)
+__global__ void juliaKernel(uchar4* ptr, int w, int h, float scale, const uchar4* gradient, size_t gradientSize)
 {
     int x = threadIdx.x + blockIdx.x * blockDim.x;
     int y = threadIdx.y + blockIdx.y * blockDim.y;
