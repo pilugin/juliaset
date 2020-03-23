@@ -5,7 +5,25 @@
 
 #include "cuda/julia.cu.h"
 
+#include <iostream>
+#include <iomanip>
+#include <algorithm>
+
 using cuda::Err;
+
+namespace {
+
+void printColor(size_t i, size_t size, uint32_t rgba)
+{
+    float a = ((rgba >> 24)&0xFF) / 255.;
+    float r = ((rgba >> 16)&0xFF) / 255.;
+    float g = ((rgba >>  8)&0xFF) / 255.;
+    float b = ((rgba >>  0)&0xFF) / 255.;
+
+    std::cout << "#" << std::fixed << std::setw(6) << (static_cast<float>(i) / size) << " :" << a << " " << r << " " << g << " " << b << " hex:" << std::hex << rgba << "\n";
+}
+
+}
 
 Window::Window(QWidget* parent)
     : QOpenGLWidget{parent}
@@ -36,6 +54,12 @@ void Window::initializeGL()
     const auto hostGradient = generateGradient(generateDefaultGradientStops(), gradientSize);
     cudaMemcpy(devGradient_, hostGradient.data(), hostGradient.size()*sizeof(uint32_t), cudaMemcpyHostToDevice) || Err{"Failed to memcpy to device"};
     devGradientSize_ = gradientSize;
+
+    // check interpolation
+    for (size_t i=0; i<hostGradient.size(); ++i)
+    {
+        printColor(i, hostGradient.size()-1, hostGradient[i]);
+    }
 
     timerId_ = startTimer(30);
 
