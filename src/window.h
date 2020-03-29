@@ -33,4 +33,6 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
     QPoint mousePressPos_ {};
 
     float scale_ {1.};
+
+    QPointF seed_ {-0.8, 0.156};
 };

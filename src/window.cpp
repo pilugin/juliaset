@@ -112,7 +112,7 @@ void Window::initializeGL()
 
     cuda::init();
 
-    constexpr size_t gradientSize = 128;
+    constexpr size_t gradientSize = 128*2;
 
     // TODO use constant memory here
     cudaMalloc(&devGradient_, gradientSize * sizeof(uint32_t)) || Err{"Failed to allocate device memory"};
@@ -176,6 +176,7 @@ void Window::paintGL()
 
     void *devPtr = cuda::map(cudaBufHandle_);
     renderJuliaSet(devPtr,
+                   seed_.x(), seed_.y(),
                    viewportSize_.width(), viewportSize_.height(),
                    modelRect_.left(), modelRect_.right(), modelRect_.top(), modelRect_.bottom(),
                    devGradient_, devGradientSize_);
@@ -205,7 +206,8 @@ void Window::paintGL()
 
 void Window::mousePressEvent(QMouseEvent* e)
 {
-    if (e->button() == Qt::LeftButton || e->button() == Qt::RightButton)
+    if (e->button() == Qt::LeftButton || e->button() == Qt::RightButton
+                                      || e->button() == Qt::MiddleButton)
     {
         mousePressPos_ = prevMousePos_ = e->pos();
     }
@@ -237,6 +239,13 @@ void Window::mouseMoveEvent(QMouseEvent* e)
         }
         const auto scaleCenter = pointToModel(mousePressPos_, modelRect_, viewportSize_);
         modelRect_ = scaleModelRect(scaleCenter, modelRect_, scale);
+        update();
+    }
+    else if (e->buttons().testFlag(Qt::MiddleButton))
+    {
+        const auto delta = e->pos() - prevMousePos_;
+        seed_.setX( seed_.x() + static_cast<qreal>(delta.x())*0.001 );
+        seed_.setY( seed_.y() + static_cast<qreal>(delta.y())*0.001 );
         update();
     }
 
