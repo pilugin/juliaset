@@ -23,10 +23,10 @@ void printColor(size_t i, size_t size, uint32_t rgba)
     std::cout << "#" << std::fixed << std::setw(6) << (static_cast<float>(i) / size) << " :" << a << " " << r << " " << g << " " << b << " hex:" << std::hex << rgba << "\n";
 }
 
-QPointF pointToModel(const QPoint& point, const QRectF& modelRect, int w, int h)
+QPointF pointToModel(const QPoint& point, const QRectF& modelRect, const QSize& size)
 {
-    const auto sw = static_cast<qreal>(w);
-    const auto sh = static_cast<qreal>(h);
+    const auto sw = static_cast<qreal>(size.width());
+    const auto sh = static_cast<qreal>(size.height());
 
     const auto x0 = modelRect.left();
     const auto x1 = modelRect.right();
@@ -37,8 +37,18 @@ QPointF pointToModel(const QPoint& point, const QRectF& modelRect, int w, int h)
     const auto sy = static_cast<qreal>(point.y());
 
     return QPointF{
-        (x1 - x0)*(sw - sx)/sw + x0,
+        (x1 - x0)*sx/sw + x0,
         (y1 - y0)*(sh - sy)/sh + y0,
+    };
+}
+
+QRectF moveModelRect(const QPointF& delta, const QRectF& modelRect)
+{
+    return QRectF{
+        modelRect.left() + delta.x(),
+        modelRect.top() + delta.y(),
+        modelRect.width(),
+        modelRect.height(),
     };
 }
 
@@ -58,7 +68,7 @@ QRectF scaleModelRect(const QPointF& zoomPoint, const QRectF& modelRect, qreal c
     };
 }
 
-QRectF resizeModelRect(int oldw, int oldh, int neww, int newh, const QRectF& modelRect)
+QRectF resizeModelRect(const QSize& oldSize, const QSize& newSize, const QRectF& modelRect)
 {
     const auto x0 = modelRect.left();
     const auto x1 = modelRect.right();
@@ -68,10 +78,9 @@ QRectF resizeModelRect(int oldw, int oldh, int neww, int newh, const QRectF& mod
     const auto cx = (x1 + x0)/2.;
     const auto cy = (y1 + y0)/2.;
 
-    const auto s = (x1 - x0)/static_cast<qreal>(oldw);
-    static_cast<void>(oldh);
-    const auto w = static_cast<qreal>(neww);
-    const auto h = static_cast<qreal>(newh);
+    const auto s = (x1 - x0)/static_cast<qreal>(oldSize.width());
+    const auto w = static_cast<qreal>(newSize.width());
+    const auto h = static_cast<qreal>(newSize.height());
 
     return QRectF{
         QPointF{cx - (w/2.)*s, cy - (h/2.)*s},
@@ -79,12 +88,12 @@ QRectF resizeModelRect(int oldw, int oldh, int neww, int newh, const QRectF& mod
     };
 }
 
-}
+} // namespace
 
 Window::Window(QWidget* parent)
     : QOpenGLWidget{parent}
 {
-    setMouseTracking(true);
+    ;
 }
 
 Window::~Window()
@@ -118,8 +127,6 @@ void Window::initializeGL()
         printColor(i, hostGradient.size()-1, hostGradient[i]);
     }
 #endif
-
-    timerId_ = startTimer(30);
 
     glGenBuffers(1, &buf_);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf_);
@@ -158,9 +165,9 @@ void Window::resizeGL(int w, int h)
     glBufferData(GL_PIXEL_UNPACK_BUFFER, w * h * 4, NULL, GL_DYNAMIC_DRAW);
     glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0); //< unbinding the pixel_unpack buffer
 
-    modelRect_ = resizeModelRect(viewportSize_.width(), viewportSize_.height(), w, h, modelRect_);
-    viewportSize_.setWidth(w);
-    viewportSize_.setHeight(h);
+    QSize newSize{w, h};
+    modelRect_ = resizeModelRect(viewportSize_, newSize, modelRect_);
+    viewportSize_ = newSize;
 }
 
 void Window::paintGL()
@@ -196,58 +203,42 @@ void Window::paintGL()
     glEnd();
 }
 
-void Window::timerEvent(QTimerEvent* e)
-{
-    if (e->timerId() == timerId_)
-    {
-        const auto p = pointToModel(mousePoint_, modelRect_, viewportSize_.width(), viewportSize_.height());
-        modelRect_ = scaleModelRect(p, modelRect_, scale_);
-        update();
-    }
-}
-
 void Window::mousePressEvent(QMouseEvent* e)
 {
-    constexpr qreal scaleStep = 0.975;
-
-
-    scale_ = e->button() == Qt::LeftButton  ? scaleStep :
-             e->button() == Qt::RightButton ? 1./scaleStep :
-                                            1.;
-    if (scale_ != 1.)
+    if (e->button() == Qt::LeftButton || e->button() == Qt::RightButton)
     {
-        const auto p = pointToModel(mousePoint_, modelRect_, viewportSize_.width(), viewportSize_.height());
-        modelRect_ = scaleModelRect(p, modelRect_, scale_);
-        update();
-        startZoomTimer();
+        mousePressPos_ = prevMousePos_ = e->pos();
     }
 }
 
 void Window::mouseMoveEvent(QMouseEvent* e)
 {
-    mousePoint_ = e->pos();
-}
-
-void Window::mouseReleaseEvent(QMouseEvent* e)
-{
-    stopZoomTimer();
-}
-
-void Window::startZoomTimer()
-{
-    constexpr int zoomInterval = 30;
-
-    if (!timerId_)
+    if (e->buttons().testFlag(Qt::LeftButton)) // PAN mode
     {
-        timerId_ = startTimer(zoomInterval);
-    }
-}
+        auto delta = pointToModel(prevMousePos_, modelRect_, viewportSize_) -
+                     pointToModel(e->pos(), modelRect_, viewportSize_);
+        modelRect_ = moveModelRect(delta, modelRect_);
+        update();
 
-void Window::stopZoomTimer()
-{
-    if (timerId_)
-    {
-        killTimer(timerId_);
-        timerId_ = 0;
     }
+    else if (e->buttons().testFlag(Qt::RightButton)) // ZOOM mode
+    {
+        float scaleStep = 0.99;
+        float scale = 1.;
+        int steps = prevMousePos_.y() - e->pos().y();
+        if (steps < 0)
+        {
+            steps *= -1;
+            scaleStep = 1./scaleStep;
+        }
+        for (int i=0; i<steps; ++i)
+        {
+            scale *= scaleStep;
+        }
+        const auto scaleCenter = pointToModel(mousePressPos_, modelRect_, viewportSize_);
+        modelRect_ = scaleModelRect(scaleCenter, modelRect_, scale);
+        update();
+    }
+
+    prevMousePos_ = e->pos();
 }
