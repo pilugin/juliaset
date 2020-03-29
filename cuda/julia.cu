@@ -25,15 +25,10 @@ struct cuComplex
     }
 };
 
-constexpr float DIM = 1000.;
-
-__device__ int julia(int x, int y, float scale, size_t maxIter)
+__device__ int julia(float x, float y, size_t maxIter)
 {
-    float jx = scale * (DIM/2. - x)/(DIM/2.);
-    float jy = scale * (DIM/2. - y)/(DIM/2.);
-
     cuComplex c{-0.8, 0.156}; // -0.8; 0.156
-    cuComplex a{jx, jy};
+    cuComplex a{x, y};
     int i=0;
     for (; i<maxIter; ++i)
     {
@@ -46,22 +41,28 @@ __device__ int julia(int x, int y, float scale, size_t maxIter)
     return i;
 }
 
-__global__ void juliaKernel(uchar4* ptr, int w, int h, float scale, const uchar4* gradient, size_t gradientSize)
+__global__ void juliaKernel(uchar4* ptr,
+                            int w, int h,
+                            float x0, float x1, float y0, float y1,
+                            const uchar4* gradient, size_t gradientSize)
 {
-    int x = threadIdx.x + blockIdx.x * blockDim.x;
-    int y = threadIdx.y + blockIdx.y * blockDim.y;
-    int offset = x + y*w;
+    const int px = threadIdx.x + blockIdx.x * blockDim.x;
+    const int py = threadIdx.y + blockIdx.y * blockDim.y;
+    const int offset = px + py*w;
 
-    if (x >= w || y >= h)
+    const float x = x0 + (x1 - x0)*static_cast<float>(px)/w;
+    const float y = y0 + (y1 - y0)*static_cast<float>(py)/h;
+
+    if (px >= w || py >= h)
     {
         return;
     }
 
     uchar4& pixel = ptr[offset];
 
-    const size_t maxIter = gradientSize * 2;
+    const size_t maxIter = gradientSize;
 
-    int juliaValue = julia(x, y, scale, maxIter);
+    const int juliaValue = julia(x, y, maxIter);
 
     const float c = static_cast<float>(juliaValue) / static_cast<float>(maxIter);
 
@@ -70,7 +71,10 @@ __global__ void juliaKernel(uchar4* ptr, int w, int h, float scale, const uchar4
 
 } // namespace
 
-void renderJuliaSet(void* devPtr, int w, int h, double scaleFactor, const void* gradient, size_t gradientSize)
+void renderJuliaSet(void* devPtr,
+                    int w, int h,
+                    float x0, float x1, float y0, float y1,
+                    const void* gradient, size_t gradientSize)
 {
     const unsigned int blockSize = 32;
 
@@ -78,6 +82,8 @@ void renderJuliaSet(void* devPtr, int w, int h, double scaleFactor, const void* 
     dim3 block{blockSize, blockSize};
 
     juliaKernel<<<grid, block>>>
-                            (static_cast<uchar4*>(devPtr), w, h, scaleFactor,
+                            (static_cast<uchar4*>(devPtr),
+                             w, h,
+                             x0, x1, y0, y1,
                              static_cast<const uchar4*>(gradient), gradientSize);
 }

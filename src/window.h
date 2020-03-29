@@ -1,7 +1,7 @@
 #pragma once
 
 #include <QtOpenGL>
-#include <QSize>
+#include <QRectF>
 
 class Window: public QOpenGLWidget, protected QOpenGLFunctions
 {
@@ -17,6 +17,13 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
     void paintGL() override;
 
     void timerEvent(QTimerEvent* e) override;
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+
+  private:
+    void startZoomTimer();
+    void stopZoomTimer();
 
   private:
     GLuint buf_;
@@ -27,5 +34,10 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
     size_t devGradientSize_ {0};
 
     int timerId_ {0};
-    double scaleFactor_ {1.0};
+
+    QRectF modelRect_ {-1., -1., 2., 2.};
+    QSize viewportSize_ {100, 100};
+    QPoint mousePoint_ {};
+
+    float scale_ {1.};
 };

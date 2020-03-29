@@ -4,7 +4,7 @@ TARGET = juliaset-qt
 INCLUDEPATH += . src
 
 QT += opengl
-CONFIG += c++14
+CONFIG += c++14 debug
 
 OBJECTS_DIR=.obj
 MOC_DIR=.obj
