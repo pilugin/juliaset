@@ -13,4 +13,4 @@ qmake && make && ./bin/juliaset-qt
 # UI hints
 * Drag with left mouse button pressed - navigate 
 * Drag vertically with right mouse button pressed - zoom in/out
-* Drag with middle mouse button pressed - modify C (vertical direction - adjust real part of C; horizontal direction - adjust imaginary part of C or ther otherway around)
+* Drag with middle mouse button pressed - modify C (vertical direction - adjust real part of C; horizontal direction - adjust imaginary part of C or the otherway around)
