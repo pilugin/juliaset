@@ -45,13 +45,7 @@ class Error
 using Err = Error<std::runtime_error>;
 
 template <typename Exception>
-void operator||(cudaError err, Error<Exception>&& e)
-{
-    e = err;
-}
-
-template <typename Exception>
-void operator||(cudaError err, Error<Exception>& e)
+void operator||(cudaError err, Error<Exception> e)
 {
     e = err;
 }
