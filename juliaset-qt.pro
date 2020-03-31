@@ -35,7 +35,7 @@ SOURCES += src/main.cpp \
 #
 ### CUDA ###
 #
-CUDA_DIR = /home/piliuhko/.cache/bazel/_bazel_piliuhko/ws/external/cuda9_pc_linux_amd64_gcc
+CUDA_DIR = /usr/local/cuda
 
 INCLUDEPATH += $$CUDA_DIR/include
 LIBS += -L$$CUDA_DIR/lib64 -lcuda -lcudart
