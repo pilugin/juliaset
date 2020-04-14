@@ -145,6 +145,8 @@ void Window::initializeGL()
     glEnable(GL_TEXTURE_2D);
 
     glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
+
+    timerId_ = startTimer(30);
 }
 
 void Window::resizeGL(int w, int h)
@@ -251,3 +253,14 @@ void Window::mouseMoveEvent(QMouseEvent* e)
 
     prevMousePos_ = e->pos();
 }
+
+void Window::timerEvent(QTimerEvent* e)
+{
+    if (e->timerId() == timerId_)
+    {
+        seed_.setX(seed_.x() + 1e-6);
+        seed_.setY(seed_.y() + 3e-7);
+        update();
+    }
+}
+

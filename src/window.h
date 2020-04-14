@@ -18,6 +18,7 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
 
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
+    void timerEvent(QTimerEvent* e) override;
 
   private:
     GLuint buf_;
@@ -35,4 +36,6 @@ class Window: public QOpenGLWidget, protected QOpenGLFunctions
     float scale_ {1.};
 
     QPointF seed_ {-0.8, 0.156};
+
+    int timerId_ {0};
 };
